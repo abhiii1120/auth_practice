@@ -2,7 +2,7 @@ import express from "express";
 import UserModel from "./models/user.model.js";
 import noteModel from "./models/note.model.js";
 import cookies from "cookie-parser";
-import jwt from 'jsonwebtoken'
+import jwt from "jsonwebtoken";
 let app = express();
 app.use(express.json());
 app.use(cookies());
@@ -15,15 +15,18 @@ app.use(cookies());
 app.post("/api/auth/register", async (req, res) => {
   let { name, email, password } = req.body;
 
-  if (!name || !email) {
+  if (!name || !email || !password) {
     res.status(400).json({
       error: "All fields are required",
     });
   }
 
-  const newUser = await UserModel.create({ name, email });
+  const newUser = await UserModel.create({ name, email ,password });
 
-  const token = jwt.sign({ id: newUser._id, email: newUser.email },process.env.JWT_SECRET);
+  const token = jwt.sign(
+    { id: newUser._id, email: newUser.email },
+    process.env.JWT_SECRET,
+  );
 
   res.cookie("token", token);
 
@@ -31,6 +34,44 @@ app.post("/api/auth/register", async (req, res) => {
     message: "user registered successfully",
     newUser,
   });
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    let { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "all fields are required",
+      });
+    }
+
+    const user = await UserModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "user not found",
+      });
+    }
+
+    if(!(await user.matchPassword(password))){
+        return res.status(401).json({ error:"Invalid credentials"});
+    }
+
+    const token = jwt.sign({id:user._id , email: user.email},process.env.JWT_SECRET);
+
+    res.cookie("token",token)
+
+    return res.status(200).json({
+        message:"user loggedin successfully",
+        user
+    })
+  } catch (error) {
+    return res.status(500).json({
+      message: "internal server error",
+      error,
+    });
+  }
 });
 
 app.get("/api/auth/me", async (req, res) => {
@@ -47,7 +88,7 @@ app.post("/api/notes", async (req, res) => {
     let { title, description } = req.body;
 
     const token = req.cookies.token;
-    const user = jwt.verify(token,process.env.JWT_SECRET);
+    const user = jwt.verify(token, process.env.JWT_SECRET);
 
     req.user = user;
 
