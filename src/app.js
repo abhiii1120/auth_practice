@@ -21,7 +21,7 @@ app.post("/api/auth/register", async (req, res) => {
     });
   }
 
-  const newUser = await UserModel.create({ name, email ,password });
+  const newUser = await UserModel.create({ name, email, password });
 
   const token = jwt.sign(
     { id: newUser._id, email: newUser.email },
@@ -54,18 +54,21 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    if(!(await user.matchPassword(password))){
-        return res.status(401).json({ error:"Invalid credentials"});
+    if (!(await user.matchPassword(password))) {
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const token = jwt.sign({id:user._id , email: user.email},process.env.JWT_SECRET);
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+    );
 
-    res.cookie("token",token)
+    res.cookie("token", token);
 
     return res.status(200).json({
-        message:"user loggedin successfully",
-        user
-    })
+      message: "user loggedin successfully",
+      user,
+    });
   } catch (error) {
     return res.status(500).json({
       message: "internal server error",
@@ -125,6 +128,68 @@ app.get("/api/notes", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: "Internal server error",
+    });
+  }
+});
+
+app.patch("/api/notes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { description } = req.body;
+    const token = req.cookies.token;
+    const user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = user;
+    if (!description) {
+      return res.status(400).json({ error: "Description is required" });
+    }
+
+    const note = await noteModel.findOne({
+      _id: id,
+      user: req.user.email,
+    });
+
+    if (!note) {
+      return res.status(404).json({ error: "Note not found" });
+    }
+
+    note.description = description;
+    await note.save();
+
+    return res.status(200).json({
+      message: "note updated successfully",
+      note,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+app.delete("/api/notes/:id", async (req, res) => {
+  try {
+    let { id } = req.params;
+    let token = req.cookies.token;
+    let user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = user;
+
+    const note = await noteModel.findOne({
+      _id: id,
+      user: req.user.email,
+    });
+
+    if (!note) {
+      return res.status(404).json({ error: "note not found" });
+    }
+
+    await noteModel.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      message: "note deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Internal server error",
     });
   }
 });
