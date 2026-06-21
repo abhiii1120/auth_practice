@@ -2,6 +2,7 @@ import express from "express";
 import UserModel from "./models/user.model.js";
 import noteModel from "./models/note.model.js";
 import cookies from "cookie-parser";
+import jwt from 'jsonwebtoken'
 let app = express();
 app.use(express.json());
 app.use(cookies());
@@ -22,7 +23,7 @@ app.post("/api/auth/register", async (req, res) => {
 
   const newUser = await UserModel.create({ name, email });
 
-  const token = JSON.stringify({ id: newUser._id, email: newUser.email });
+  const token = jwt.sign({ id: newUser._id, email: newUser.email },process.env.JWT_SECRET);
 
   res.cookie("token", token);
 
@@ -46,7 +47,7 @@ app.post("/api/notes", async (req, res) => {
     let { title, description } = req.body;
 
     const token = req.cookies.token;
-    const user = JSON.parse(token);
+    const user = jwt.verify(token,process.env.JWT_SECRET);
 
     req.user = user;
 
