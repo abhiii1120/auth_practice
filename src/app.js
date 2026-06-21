@@ -1,5 +1,90 @@
-import express from 'express';
-
+import express from "express";
+import UserModel from "./models/user.model.js";
+import noteModel from "./models/note.model.js";
+import cookies from "cookie-parser";
 let app = express();
+app.use(express.json());
+app.use(cookies());
+
+/**
+ * @route POST /api/auth/register
+ * @description Register a new user by taking name, email and password in the request body
+ * @access Public
+ */
+app.post("/api/auth/register", async (req, res) => {
+  let { name, email, password } = req.body;
+
+  if (!name || !email) {
+    res.status(400).json({
+      error: "All fields are required",
+    });
+  }
+
+  const newUser = await UserModel.create({ name, email });
+
+  const token = JSON.stringify({ id: newUser._id, email: newUser.email });
+
+  res.cookie("token", token);
+
+  return res.status(201).json({
+    message: "user registered successfully",
+    newUser,
+  });
+});
+
+app.get("/api/auth/me", async (req, res) => {
+  const token = req.cookies.token;
+
+  return res.status(200).json({
+    message: "user details",
+    token,
+  });
+});
+
+app.post("/api/notes", async (req, res) => {
+  try {
+    let { title, description } = req.body;
+
+    const token = req.cookies.token;
+    const user = JSON.parse(token);
+
+    req.user = user;
+
+    if (!title || !description)
+      return res.status(400).json({
+        message: "All fields are required",
+      });
+
+    const newNote = await noteModel.create({
+      title,
+      description,
+      user: req.user.email,
+    });
+
+    return res.status(291).json({
+      message: "note created successfully",
+      newNote,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+});
+
+app.get("/api/notes", async (req, res) => {
+  try {
+    let notes = await noteModel.find();
+
+    return res.status(200).json({
+      message: "notes fetched successfully",
+      notes,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+});
 
 export default app;
