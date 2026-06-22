@@ -3,6 +3,7 @@ import UserModel from "./models/user.model.js";
 import noteModel from "./models/note.model.js";
 import cookies from "cookie-parser";
 import jwt from "jsonwebtoken";
+import { authMiddleware } from "./middleware/auth.middleware.js";
 let app = express();
 app.use(express.json());
 app.use(cookies());
@@ -86,14 +87,9 @@ app.get("/api/auth/me", async (req, res) => {
   });
 });
 
-app.post("/api/notes", async (req, res) => {
+app.post("/api/notes",authMiddleware, async (req, res) => {
   try {
     let { title, description } = req.body;
-
-    const token = req.cookies.token;
-    const user = jwt.verify(token, process.env.JWT_SECRET);
-
-    req.user = user;
 
     if (!title || !description)
       return res.status(400).json({
@@ -132,13 +128,11 @@ app.get("/api/notes", async (req, res) => {
   }
 });
 
-app.patch("/api/notes/:id", async (req, res) => {
+app.patch("/api/notes/:id",authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { description } = req.body;
-    const token = req.cookies.token;
-    const user = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = user;
+    
     if (!description) {
       return res.status(400).json({ error: "Description is required" });
     }
@@ -166,13 +160,10 @@ app.patch("/api/notes/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/notes/:id", async (req, res) => {
+app.delete("/api/notes/:id", authMiddleware, async (req, res) => {
   try {
     let { id } = req.params;
-    let token = req.cookies.token;
-    let user = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = user;
-
+    
     const note = await noteModel.findOne({
       _id: id,
       user: req.user.email,
